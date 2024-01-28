@@ -25,7 +25,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-#include <math.h>
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -37,17 +37,7 @@ enum notes{
 	C = 3822,	C_s = 3608,	D = 3405,	D_s = 3214,    E = 3034,    F = 2863,    F_s = 2703,	G = 2551,	G_s = 2408,	A = 2273, 	A_s = 2145,	B = 2025  //5 octave
 };
 
-//uint16_t LG_Bell[] =  { D, G, F_s, E, D, b, C, D, E, a, b, C, b, D,
-//						D, G, F_s, E, D, G, G, A, G, F_s, E, F_s, G };
-uint16_t LG_Bell[] =  { D/2, G/2, F_s/2, E/2, D/2, b/2, C/2, D/2, E/2, a/2, b/2, C/2, b/2, D/2,
-						D/2, G/2, F_s/2, E/2, D/2, G/2, G/2, A/2, G/2, F_s/2, E/2, F_s/2, G/2 };
-uint16_t LG_interval[] = {	375, 166, 166, 166, 375, 375, 166, 166, 166, 166, 166, 166, 375, 375, 375, 166, 166, 166, 375, 375, 166, 166, 166, 166, 166, 166, 500};
-uint16_t Bell[] = { G, A, B, G, C/2 };
-uint16_t Bell2[] = { f*2, C*2, g*2, D*2, C*2 };
-uint16_t Bell3[] = { e*2, a*2, d*2, g*2};
-uint16_t interval[] = { 166, 166, 166, 250, 250};
-uint16_t interval2[] = { 250, 250, 250, 250, 500};
-uint16_t interval3[] = { 250, 250, 250, 250};
+
 uint16_t PWM_Width = 1;
 
 uint8_t up_pulse = 0;
@@ -85,41 +75,42 @@ uint8_t opcode = '0';
 int Charging_Status;
 
 void startBR(){
-	if(status){
+	if(status)
+	{
 		HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
 		timeCount=0;
 		status = 0;
-	}else{
+	}
+	else
+	{
 		status = 1;
-		PWM_Width = (TIM3->ARR+1)/10;
+//		PWM_Width = (TIM3->ARR+1)/10;
 		HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
 		while(status){
 			if(timeCount <= 1800000){
 				Charging_Status = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_4);
-				if(Charging_Status==1){
+				if(Charging_Status==1)
+				{
 					  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);
 				}
-				else{
-
-				  for(int j=0; j< 10; j++)
-				  {
-					  TIM3->CCR1 = PWM_Width*j;
-//					  delay_us(1);
-				  }
-				  for(int k=10; k>0; k--)
-				  {
-					  TIM3->CCR1 = PWM_Width*k;
-//					  delay_us(1);
-				  }
+				else
+				{
+					for(int j=25002; j>2; j--)
+					{
+					  TIM3->CCR1 = (TIM3->ARR/2) - (TIM3->ARR/j);
+					  delay_us(1);
+					}
 
 //				delay_us(50000);
 //				delay_us(50000);
 //				HAL_Delay(99);
-				timeCount += 1;
+				timeCount += 100;
 				}
-			}else{
+			}
+			else
+			{
 				HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
 				HAL_TIM_Base_Stop(&htim1);
 				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
@@ -132,38 +123,83 @@ void startBR(){
 	}
 }
 void Sound_Open(){
+	//uint16_t LG_Bell[] =  { D, G, F_s, E, D, b, C, D, E, a, b, C, b, D,
+	//						D, G, F_s, E, D, G, G, A, G, F_s, E, F_s, G };
+	uint16_t LG_Bell[] =  { D/2, G/2, F_s/2, E/2, D/2, b/2, C/2, D/2, E/2, a/2, b/2, C/2, b/2, D/2,
+							D/2, G/2, F_s/2, E/2, D/2, G/2, G/2, A/2, G/2, F_s/2, E/2, F_s/2, G/2 };
+	uint16_t LG_interval[] = {	375, 166, 166, 166, 375, 375, 166, 166, 166, 166, 166, 166, 375, 375, 375, 166, 166, 166, 375, 375, 166, 166, 166, 166, 166, 166, 500};
+//	uint16_t Bell[] = { G, A, B, G, C/2 };
+//	uint16_t Bell2[] = { f*2, C*2, g*2, D*2, C*2 };
+//	uint16_t Bell3[] = { G, C/2, A, D/2, C/2};
+//	uint16_t interval[] = { 166, 166, 166, 250, 250};
+//	uint16_t interval2[] = { 250, 250, 250, 250, 500};
+//	uint16_t interval3[] = { 250, 375, 250, 375, 500};
+
 	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 	for(int i=0; i < (sizeof(LG_Bell)/sizeof(LG_Bell[0])); i++)
-	{
+		{
+		  TIM3->ARR = LG_Bell[i]-1;
+		  TIM3->CCR1 = TIM3->ARR/2-1;
+//		  PWM_Width = (TIM3->ARR+1)/500;
 
+		  for(int j=1002; j>2; j--)
+		  {
+			  TIM3->CCR1 = (TIM3->ARR/2) - (TIM3->ARR/j);
+			  delay_us(LG_interval[i]);
+		  }
+	//	  delay_us(LG_interval[i]*100);
+	//	  HAL_Delay(LG_interval[i]);
+
+		}
+	/*for(int i=0; i < (sizeof(LG_Bell)/sizeof(LG_Bell[0])); i++)
+	{
 	  TIM3->ARR = LG_Bell[i]-1;
-//	  TIM3->CCR1 = TIM3->ARR/2-1;
+	  TIM3->CCR1 = TIM3->ARR/2-1;
 	  PWM_Width = (TIM3->ARR+1)/500;
 
-		  for(int j=100; j< 200; j++)
-		  {
-			  TIM3->CCR1 = (TIM3->ARR/4-1) + PWM_Width*j;
-			  delay_us(LG_interval[i]*5);
-		  }
-		  for(int k=200; k>100; k--)
-		  {
-			  TIM3->CCR1 = (TIM3->ARR/4-1) + PWM_Width*k;
-			  delay_us(LG_interval[i]*5);
-		  }
+	  for(int j=0; j<10; j++)
+	  {
+		  TIM3->CCR1 = (TIM3->ARR/2-1) - PWM_Width*j;
+		  delay_us(LG_interval[i]*100);
+	  }
+//	  delay_us(LG_interval[i]*100);
+//	  HAL_Delay(LG_interval[i]);
 
-//	  HAL_Delay(interval[i]);
-
-	}
+	}*/
 	HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
 
 
 	 		//40Hz = 500, 12Hz = 1666, 10Hz = 2000, 8Hz = 2500
 	  TIM3->ARR = 50000-1;
 //	    HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_1, (uint32_t*)IV, 10);
-
+	  TIM3->CCR1 = 50000/2-1;
 //	  PWM_Width = TIM3->ARR/1000;
 //	  up_pulse = 1;
 
+}
+void Sound_Open2(){
+	//uint16_t LG_Bell[] =  { D, G, F_s, E, D, b, C, D, E, a, b, C, b, D,
+	//						D, G, F_s, E, D, G, G, A, G, F_s, E, F_s, G };
+	uint16_t Bell[] =  { B/2, F/2, F/2, E/2, F/2, G/2 };
+	uint16_t interval[] = {	250, 166, 250, 166, 166, 500};
+
+
+	for(int i=0; i < (sizeof(Bell)/sizeof(Bell[0])); i++)
+		{
+		HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+		  TIM3->ARR = Bell[i]-1;
+		  TIM3->CCR1 = TIM3->ARR/2-1;
+//		  PWM_Width = (TIM3->ARR+1)/500;
+
+		  for(int j=1002; j>2; j--)
+		  {
+			  TIM3->CCR1 = (TIM3->ARR/2) - (TIM3->ARR/j);
+			  delay_us(interval[i]);
+		  }
+		  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
+		}
+		  TIM3->ARR = 50000-1;
+		  TIM3->CCR1 = 50000/2-1;
 }
 /*
 void Sound_Open(){
@@ -197,7 +233,27 @@ void Sound_Open(){
 }*/
 
 void Sound_Close(){
-	  int freq = 1900;
+	uint16_t Close_Bell[] = { G/2, C/2, B/2, D/2, C/2,0,
+							  G, B, D/2, 0,
+							  C/2, A, F, 0 };
+	uint16_t Close_interval[] = { 375, 500, 375, 500, 500, 1000,
+								250, 250, 250, 1000,
+								250, 250, 250, 1000 };
+
+	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+		for(int i=0; i < (sizeof(Close_Bell)/sizeof(Close_Bell[0])); i++)
+		{
+		  TIM3->ARR = Close_Bell[i]-1;   //frequency
+//		  PWM_Width = (TIM3->ARR+1)/500;
+
+		  for(int j=1002; j>100; j--)
+		  {
+			  TIM3->CCR1 = (TIM3->ARR/2) - (TIM3->ARR/j); //duty ratio
+			  delay_us(Close_interval[i]);
+		  }
+		}
+	HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
+/*	  int freq = 1900;
 	  TIM3->ARR = freq-1;
 	  TIM3->CCR1 = freq/2-1;
 	  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
@@ -223,7 +279,7 @@ void Sound_Close(){
 	  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
 	  freq = 50000;		//40Hz = 500, 12Hz = 1666, 10Hz = 2000, 8Hz = 2500
 	  TIM3->ARR = freq-1;
-	  TIM3->CCR1 = freq/2-1;
+	  TIM3->CCR1 = freq/2-1;*/
 }
 /* USER CODE END 0 */
 
@@ -272,6 +328,10 @@ int main(void)
   HAL_UART_Receive_IT(&huart2, &rx2_data, 1);
   HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 1);
   HAL_Delay(100);
+  Sound_Close();
+  HAL_Delay(1000);
+  Sound_Open2();
+  HAL_Delay(1000);
   Sound_Open();
   HAL_Delay(1000);
   timeCount = 0;
@@ -443,8 +503,8 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 	}
 }
 void delay_us(uint16_t time) {
-	__HAL_TIM_SET_COUNTER(&htim1, 0);              // ???��머�?? 0?���? 초기?��
-	while((__HAL_TIM_GET_COUNTER(&htim1))<time);   // ?��?��?�� ?��간까�? ??�?
+	__HAL_TIM_SET_COUNTER(&htim1, 0);              // TIM1 for delay
+	while((__HAL_TIM_GET_COUNTER(&htim1))<time);   // 1us count
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
