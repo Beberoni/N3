@@ -209,7 +209,7 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   HAL_TIM_Base_Start(&htim1); //for delay_us
-  HAL_TIM_Base_Start_IT(&htim14); //for timer interrupt
+
   if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_4)==1) { HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);  } //if N3 Status is Charing, Shut down System.
   else{
 	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 1); // Turn on Status LED
@@ -218,6 +218,7 @@ int main(void)
 	//  HAL_Delay(1000);
 	  Sound_Open();
 	  HAL_Delay(1000);
+	  HAL_TIM_Base_Start_IT(&htim14); //for timer interrupt
 	  /* UART Rx_DMA */
 	  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, RxBuffer, MAX_RX_BUFFER); // Receive an amount of data in DMA mode till either the expected number of data is received or an IDLE event occurs.
 	  __HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);

@@ -801,46 +801,47 @@ int main(void)
  800058a:	4b39      	ldr	r3, [pc, #228]	; (8000670 <main+0x118>)
  800058c:	0018      	movs	r0, r3
  800058e:	f002 f9e9 	bl	8002964 <HAL_TIM_Base_Start>
-  HAL_TIM_Base_Start_IT(&htim14); //for timer interrupt
- 8000592:	4b38      	ldr	r3, [pc, #224]	; (8000674 <main+0x11c>)
- 8000594:	0018      	movs	r0, r3
- 8000596:	f002 fa49 	bl	8002a2c <HAL_TIM_Base_Start_IT>
+
   if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_4)==1) { HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);  } //if N3 Status is Charing, Shut down System.
- 800059a:	2390      	movs	r3, #144	; 0x90
- 800059c:	05db      	lsls	r3, r3, #23
- 800059e:	2110      	movs	r1, #16
- 80005a0:	0018      	movs	r0, r3
- 80005a2:	f001 fcc7 	bl	8001f34 <HAL_GPIO_ReadPin>
- 80005a6:	0003      	movs	r3, r0
- 80005a8:	2b01      	cmp	r3, #1
- 80005aa:	d107      	bne.n	80005bc <main+0x64>
- 80005ac:	2390      	movs	r3, #144	; 0x90
- 80005ae:	05db      	lsls	r3, r3, #23
- 80005b0:	2200      	movs	r2, #0
- 80005b2:	2120      	movs	r1, #32
- 80005b4:	0018      	movs	r0, r3
- 80005b6:	f001 fcda 	bl	8001f6e <HAL_GPIO_WritePin>
- 80005ba:	e054      	b.n	8000666 <main+0x10e>
+ 8000592:	2390      	movs	r3, #144	; 0x90
+ 8000594:	05db      	lsls	r3, r3, #23
+ 8000596:	2110      	movs	r1, #16
+ 8000598:	0018      	movs	r0, r3
+ 800059a:	f001 fccb 	bl	8001f34 <HAL_GPIO_ReadPin>
+ 800059e:	0003      	movs	r3, r0
+ 80005a0:	2b01      	cmp	r3, #1
+ 80005a2:	d107      	bne.n	80005b4 <main+0x5c>
+ 80005a4:	2390      	movs	r3, #144	; 0x90
+ 80005a6:	05db      	lsls	r3, r3, #23
+ 80005a8:	2200      	movs	r2, #0
+ 80005aa:	2120      	movs	r1, #32
+ 80005ac:	0018      	movs	r0, r3
+ 80005ae:	f001 fcde 	bl	8001f6e <HAL_GPIO_WritePin>
+ 80005b2:	e058      	b.n	8000666 <main+0x10e>
   else{
 	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 1); // Turn on Status LED
- 80005bc:	2390      	movs	r3, #144	; 0x90
- 80005be:	05db      	lsls	r3, r3, #23
- 80005c0:	2201      	movs	r2, #1
- 80005c2:	2120      	movs	r1, #32
- 80005c4:	0018      	movs	r0, r3
- 80005c6:	f001 fcd2 	bl	8001f6e <HAL_GPIO_WritePin>
+ 80005b4:	2390      	movs	r3, #144	; 0x90
+ 80005b6:	05db      	lsls	r3, r3, #23
+ 80005b8:	2201      	movs	r2, #1
+ 80005ba:	2120      	movs	r1, #32
+ 80005bc:	0018      	movs	r0, r3
+ 80005be:	f001 fcd6 	bl	8001f6e <HAL_GPIO_WritePin>
 	  HAL_Delay(100);
- 80005ca:	2064      	movs	r0, #100	; 0x64
- 80005cc:	f001 f82a 	bl	8001624 <HAL_Delay>
+ 80005c2:	2064      	movs	r0, #100	; 0x64
+ 80005c4:	f001 f82e 	bl	8001624 <HAL_Delay>
 	//  Sound_Close();
 	//  HAL_Delay(1000);
 	  Sound_Open();
- 80005d0:	f7ff fefa 	bl	80003c8 <Sound_Open>
+ 80005c8:	f7ff fefe 	bl	80003c8 <Sound_Open>
 	  HAL_Delay(1000);
- 80005d4:	23fa      	movs	r3, #250	; 0xfa
- 80005d6:	009b      	lsls	r3, r3, #2
+ 80005cc:	23fa      	movs	r3, #250	; 0xfa
+ 80005ce:	009b      	lsls	r3, r3, #2
+ 80005d0:	0018      	movs	r0, r3
+ 80005d2:	f001 f827 	bl	8001624 <HAL_Delay>
+	  HAL_TIM_Base_Start_IT(&htim14); //for timer interrupt
+ 80005d6:	4b27      	ldr	r3, [pc, #156]	; (8000674 <main+0x11c>)
  80005d8:	0018      	movs	r0, r3
- 80005da:	f001 f823 	bl	8001624 <HAL_Delay>
+ 80005da:	f002 fa27 	bl	8002a2c <HAL_TIM_Base_Start_IT>
 	  /* UART Rx_DMA */
 	  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, RxBuffer, MAX_RX_BUFFER); // Receive an amount of data in DMA mode till either the expected number of data is received or an IDLE event occurs.
  80005de:	4926      	ldr	r1, [pc, #152]	; (8000678 <main+0x120>)
