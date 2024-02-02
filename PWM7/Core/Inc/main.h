@@ -32,6 +32,7 @@ extern "C" {
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+void print(char *fmt, ...);
 void delay_us(uint16_t time);
 /* USER CODE END Includes */
 

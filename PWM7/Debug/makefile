@@ -63,8 +63,8 @@ all: main-build
 main-build: PWM7.elf secondary-outputs
 
 # Tool invocations
-PWM7.elf PWM7.map: $(OBJS) $(USER_OBJS) C:\Users\kjp16\Documents\N3_FW\N3\PWM7\STM32F070F6PX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "PWM7.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0 -T"C:\Users\kjp16\Documents\N3_FW\N3\PWM7\STM32F070F6PX_FLASH.ld" --specs=nosys.specs -Wl,-Map="PWM7.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+PWM7.elf PWM7.map: $(OBJS) $(USER_OBJS) C:\Users\kjp16\Desktop\KimJaepyo\1.Product\N3\FW\N3\PWM7\STM32F070F6PX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "PWM7.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m0 -T"C:\Users\kjp16\Desktop\KimJaepyo\1.Product\N3\FW\N3\PWM7\STM32F070F6PX_FLASH.ld" --specs=nosys.specs -Wl,-Map="PWM7.map" -Wl,--gc-sections -static --specs=nano.specs -mfloat-abi=soft -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 

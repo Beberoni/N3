@@ -19,33 +19,49 @@
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
+#include "dma.h"
 #include "tim.h"
 #include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include <string.h>
+#include <stdarg.h>
+#include <stdio.h>
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
+#define N3_VER  "V1.001"
 
+//40Hz = 5000, 12Hz = 16666, 10Hz = 20000, 8Hz = 25000
+#define freq_40Hz  5000-1;
+#define freq_12Hz  16666-1;
+#define freq_10Hz  20000-1;
+#define freq_8Hz   25000-1;
+
+#define MAX_RX_BUFFER 20
+#define MAX_TX_BUFFER 50
+#define MainBuf_SIZE 20
 //Octave 4,5  ex) 48MHz / 240(prescale) / 440(4 octave A) = 455
 enum notes{
 	c = 7645,	c_s = 7215,	d = 6810,	d_s = 6428,    e = 6067,    f = 5727,    f_s = 5405,	g = 5102,	g_s = 4816,	a = 4545, 	a_s = 4290,	b = 4050, //4 octave
 	C = 3822,	C_s = 3608,	D = 3405,	D_s = 3214,    E = 3034,    F = 2863,    F_s = 2703,	G = 2551,	G_s = 2408,	A = 2273, 	A_s = 2145,	B = 2025  //5 octave
 };
 
-
+uint16_t ms_count = 0;
+uint16_t s_count = 0;
 uint16_t PWM_Width = 1;
-
-uint8_t up_pulse = 0;
-uint8_t down_pulse = 0;
+uint8_t RxBuffer[MAX_RX_BUFFER];
+uint8_t TxBuffer[MAX_TX_BUFFER];
+uint8_t MainBuffer[MainBuf_SIZE];
+uint8_t TxBuffer_end = 0;
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -56,7 +72,22 @@ uint8_t down_pulse = 0;
 /* Private variables ---------------------------------------------------------*/
 
 /* USER CODE BEGIN PV */
+uint8_t Tx_Ver[] = N3_VER;    //UART TX Buffer init
+//Define Uart Command
+char *search_COMMAND1 = "1";
+char *search_COMMAND2 = "2";
+char *search_COMMAND3 = "3";
+char *search_COMMAND4 = "4";
+char *search_COMMAND5 = "5";
+char *search_COMMAND6 = "6";
+char *search_COMMAND7 = "7";
+char *search_STATUS   = "STATUS";
+char *search_CONNECTED = "CONNECTED";
+char *search_DISCONNECTED = "DISCONNECTED";
+uint8_t Current_mode = 1;
 
+uint16_t Close_Bell[] = { 0, C/2, A, F, C };
+uint16_t Close_interval[] = { 250, 250, 250, 250, 250};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -69,121 +100,38 @@ static void MX_NVIC_Init(void);
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 _Bool status = 0; // 1?��?�� ?��?��, 0?��?�� 종료
-int timeCount = 0;
+
 uint8_t rx2_data;
 uint8_t opcode = '0';
-int Charging_Status;
+uint8_t Charging_Status;
 
 void startBR(){
 	if(status)
 	{
 		HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
-		timeCount=0;
 		status = 0;
 	}
 	else
 	{
 		status = 1;
-//		PWM_Width = (TIM3->ARR+1)/10;
+		TIM3->PSC = 240-1;
+		TIM3->ARR = freq_40Hz;
+		TIM3->CCR1 = TIM3->ARR/2-1; //Duty 50:50
 		HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
 		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_SET);
-		while(status){
-			if(timeCount <= 1800000){
-				Charging_Status = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_4);
-				if(Charging_Status==1)
-				{
-					  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);
-				}
-				else
-				{
-					for(int j=25002; j>2; j--)
-					{
-					  TIM3->CCR1 = (TIM3->ARR/2) - (TIM3->ARR/j);
-					  delay_us(1);
-					}
-
-//				delay_us(50000);
-//				delay_us(50000);
-//				HAL_Delay(99);
-				timeCount += 100;
-				}
-			}
-			else
-			{
-				HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
-				HAL_TIM_Base_Stop(&htim1);
-				HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, GPIO_PIN_RESET);
-				timeCount=0;
-				status = 0;
-				break;
-			}
-		}
+//		TIM1->CCR1 = 0;
 
 	}
 }
 void Sound_Open(){
-	//uint16_t LG_Bell[] =  { D, G, F_s, E, D, b, C, D, E, a, b, C, b, D,
-	//						D, G, F_s, E, D, G, G, A, G, F_s, E, F_s, G };
-	uint16_t LG_Bell[] =  { D/2, G/2, F_s/2, E/2, D/2, b/2, C/2, D/2, E/2, a/2, b/2, C/2, b/2, D/2,
-							D/2, G/2, F_s/2, E/2, D/2, G/2, G/2, A/2, G/2, F_s/2, E/2, F_s/2, G/2 };
-	uint16_t LG_interval[] = {	375, 166, 166, 166, 375, 375, 166, 166, 166, 166, 166, 166, 375, 375, 375, 166, 166, 166, 375, 375, 166, 166, 166, 166, 166, 166, 500};
-//	uint16_t Bell[] = { G, A, B, G, C/2 };
-//	uint16_t Bell2[] = { f*2, C*2, g*2, D*2, C*2 };
-//	uint16_t Bell3[] = { G, C/2, A, D/2, C/2};
-//	uint16_t interval[] = { 166, 166, 166, 250, 250};
-//	uint16_t interval2[] = { 250, 250, 250, 250, 500};
-//	uint16_t interval3[] = { 250, 375, 250, 375, 500};
+	//	uint16_t LG_Bell[] =  { D/2, G/2, F_s/2, E/2, D/2, b/2, C/2, D/2, E/2, a/2, b/2, C/2, b/2, D/2,
+	//							D/2, G/2, F_s/2, E/2, D/2, G/2, G/2, A/2, G/2, F_s/2, E/2, F_s/2, G/2 };
+	//	uint16_t LG_interval[] = {	375, 166, 166, 166, 375, 375, 166, 166, 166, 166, 166, 166, 375, 375, 375, 166, 166, 166, 375, 375, 166, 166, 166, 166, 166, 166, 500};
 
-	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-	for(int i=0; i < (sizeof(LG_Bell)/sizeof(LG_Bell[0])); i++)
-		{
-		  TIM3->ARR = LG_Bell[i]-1;
-		  TIM3->CCR1 = TIM3->ARR/2-1;
-//		  PWM_Width = (TIM3->ARR+1)/500;
-
-		  for(int j=1002; j>2; j--)
-		  {
-			  TIM3->CCR1 = (TIM3->ARR/2) - (TIM3->ARR/j);
-			  delay_us(LG_interval[i]);
-		  }
-	//	  delay_us(LG_interval[i]*100);
-	//	  HAL_Delay(LG_interval[i]);
-
-		}
-	/*for(int i=0; i < (sizeof(LG_Bell)/sizeof(LG_Bell[0])); i++)
-	{
-	  TIM3->ARR = LG_Bell[i]-1;
-	  TIM3->CCR1 = TIM3->ARR/2-1;
-	  PWM_Width = (TIM3->ARR+1)/500;
-
-	  for(int j=0; j<10; j++)
-	  {
-		  TIM3->CCR1 = (TIM3->ARR/2-1) - PWM_Width*j;
-		  delay_us(LG_interval[i]*100);
-	  }
-//	  delay_us(LG_interval[i]*100);
-//	  HAL_Delay(LG_interval[i]);
-
-	}*/
-	HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
-
-
-	 		//40Hz = 500, 12Hz = 1666, 10Hz = 2000, 8Hz = 2500
-	  TIM3->ARR = 50000-1;
-//	    HAL_TIM_PWM_Start_DMA(&htim3, TIM_CHANNEL_1, (uint32_t*)IV, 10);
-	  TIM3->CCR1 = 50000/2-1;
-//	  PWM_Width = TIM3->ARR/1000;
-//	  up_pulse = 1;
-
-}
-void Sound_Open2(){
-	//uint16_t LG_Bell[] =  { D, G, F_s, E, D, b, C, D, E, a, b, C, b, D,
-	//						D, G, F_s, E, D, G, G, A, G, F_s, E, F_s, G };
-	uint16_t Bell[] =  { B/2, F/2, F/2, E/2, F/2, G/2 };
-	uint16_t interval[] = {	250, 166, 250, 166, 166, 500};
-
-
+	uint16_t Bell[] =  { D, G, B, D/2 };
+	uint16_t interval[] = {	250, 250, 250, 250 };
+	if (TIM3->PSC != 24-1) { TIM3->PSC = 24-1 ; } //prescaler change
 	for(int i=0; i < (sizeof(Bell)/sizeof(Bell[0])); i++)
 		{
 		HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
@@ -191,95 +139,34 @@ void Sound_Open2(){
 		  TIM3->CCR1 = TIM3->ARR/2-1;
 //		  PWM_Width = (TIM3->ARR+1)/500;
 
-		  for(int j=1002; j>2; j--)
+		  for(int j=502; j>2; j--)
 		  {
 			  TIM3->CCR1 = (TIM3->ARR/2) - (TIM3->ARR/j);
-			  delay_us(interval[i]);
+			  delay_us(interval[i]*2);
 		  }
 		  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
 		}
-		  TIM3->ARR = 50000-1;
-		  TIM3->CCR1 = 50000/2-1;
+
 }
-/*
-void Sound_Open(){
-	  int freq = 380;
-	  TIM3->ARR = freq-1;
-	  TIM3->CCR1 = freq/2-1;
-	  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-	  HAL_Delay(250);
-	  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
-	  freq = 300;
-	  TIM3->ARR = freq-1;
-	  TIM3->C1 = freq/2-1;
-	  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-	  HAL_Delay(250);
-	  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
-	  freq = 250;
-	  TIM3->ARR = freq-1;
-	  TIM3->CCR1 = freq/2-1;
-	  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-	  HAL_Delay(250);
-	  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
-	  freq = 190;
-	  TIM3->ARR = freq-1;
-	  TIM3->CCR1 = freq/2-1;
-	  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-	  HAL_Delay(250);
-	  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
-	  freq = 5000;		//40Hz = 500, 12Hz = 1666, 10Hz = 2000, 8Hz = 2500
-	  TIM3->ARR = freq-1;
-	  TIM3->CCR1 = freq/2-1;
-}*/
-
 void Sound_Close(){
-	uint16_t Close_Bell[] = { G/2, C/2, B/2, D/2, C/2,0,
-							  G, B, D/2, 0,
-							  C/2, A, F, 0 };
-	uint16_t Close_interval[] = { 375, 500, 375, 500, 500, 1000,
-								250, 250, 250, 1000,
-								250, 250, 250, 1000 };
 
-	HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-		for(int i=0; i < (sizeof(Close_Bell)/sizeof(Close_Bell[0])); i++)
-		{
-		  TIM3->ARR = Close_Bell[i]-1;   //frequency
+
+	if (TIM3->PSC != 24-1) { TIM3->PSC = 24-1 ; } //prescaler change
+	for(int i=0; i < (sizeof(Close_Bell)/sizeof(Close_Bell[0])); i++)
+	{
+	  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+	  TIM3->ARR = Close_Bell[i]-1;
+	  if(TIM3->ARR != Close_Bell[i]-1) { TIM3->ARR = Close_Bell[i]-1;   }//frequency
 //		  PWM_Width = (TIM3->ARR+1)/500;
 
-		  for(int j=1002; j>100; j--)
-		  {
-			  TIM3->CCR1 = (TIM3->ARR/2) - (TIM3->ARR/j); //duty ratio
-			  delay_us(Close_interval[i]);
-		  }
-		}
-	HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
-/*	  int freq = 1900;
-	  TIM3->ARR = freq-1;
-	  TIM3->CCR1 = freq/2-1;
-	  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-	  HAL_Delay(550);
+	  for(int j=502; j>2; j--)
+	  {
+		  TIM3->CCR1 = (TIM3->ARR/2) - (TIM3->ARR/j); //duty ratio
+		  delay_us(Close_interval[i]*2);
+	  }
 	  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
-	  freq = 2500;
-	  TIM3->ARR = freq-1;
-	  TIM3->CCR1 = freq/2-1;
-	  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-	  HAL_Delay(250);
-	  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
-	  freq = 3000;
-	  TIM3->ARR = freq-1;
-	  TIM3->CCR1 = freq/2-1;
-	  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-	  HAL_Delay(250);
-	  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
-	  freq = 3800;
-	  TIM3->ARR = freq-1;
-	  TIM3->CCR1 = freq/2-1;
-	  HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
-	  HAL_Delay(250);
-	  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
-	  freq = 50000;		//40Hz = 500, 12Hz = 1666, 10Hz = 2000, 8Hz = 2500
-	  TIM3->ARR = freq-1;
-	  TIM3->CCR1 = freq/2-1;*/
+	}
+
 }
 /* USER CODE END 0 */
 
@@ -311,42 +198,63 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_TIM3_Init();
   MX_USART2_UART_Init();
   MX_TIM1_Init();
+  MX_TIM14_Init();
 
   /* Initialize interrupts */
   MX_NVIC_Init();
   /* USER CODE BEGIN 2 */
-  HAL_TIM_Base_Start(&htim1);
-  int Charging;
-  Charging = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_4);
-  if(Charging==1){
-	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);
-  }
+
+  HAL_TIM_Base_Start(&htim1); //for delay_us
+  HAL_TIM_Base_Start_IT(&htim14); //for timer interrupt
+  if(HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_4)==1) { HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);  } //if N3 Status is Charing, Shut down System.
   else{
-  HAL_UART_Receive_IT(&huart2, &rx2_data, 1);
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 1);
-  HAL_Delay(100);
-  Sound_Close();
-  HAL_Delay(1000);
-  Sound_Open2();
-  HAL_Delay(1000);
-  Sound_Open();
-  HAL_Delay(1000);
-  timeCount = 0;
-	status = 0;
-	startBR();
-  Sound_Close();
-  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);
+	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 1); // Turn on Status LED
+	  HAL_Delay(100);
+	//  Sound_Close();
+	//  HAL_Delay(1000);
+	  Sound_Open();
+	  HAL_Delay(1000);
+	  /* UART Rx_DMA */
+	  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, RxBuffer, MAX_RX_BUFFER); // Receive an amount of data in DMA mode till either the expected number of data is received or an IDLE event occurs.
+	  __HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);
+	  /* UART Rx_DMA */
+	  status = 0;
+	  startBR();
+	  HAL_Delay(100);
+	//  Sound_Close();
+	//  HAL_TIM_Base_Stop(&htim1);
+	//  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0); //LDO Off
+
+	  /* USER CODE END 2 */
+
+	  /* Infinite loop */
+	  /* USER CODE BEGIN WHILE */
   }
-  /* USER CODE END 2 */
-
-  /* Infinite loop */
-  /* USER CODE BEGIN WHILE */
-
   while (1)
   {
+	  while(Charging_Status == 0)
+	  {
+		  if(s_count < 1800) //1800 s = 30min
+		  {
+
+			  HAL_UARTEx_ReceiveToIdle_DMA(&huart2, RxBuffer, MAX_RX_BUFFER);
+			__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);
+
+
+		  }
+		  else if(s_count >= 1800)
+		  {
+			  HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
+			  Sound_Close();
+			  HAL_TIM_Base_Stop(&htim1);
+			  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0); //LDO Off
+		  }
+	  }
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -402,36 +310,158 @@ static void MX_NVIC_Init(void)
   /* TIM3_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(TIM3_IRQn, 2, 0);
   HAL_NVIC_EnableIRQ(TIM3_IRQn);
-  /* USART2_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(USART2_IRQn, 3, 0);
-  HAL_NVIC_EnableIRQ(USART2_IRQn);
 }
 
 /* USER CODE BEGIN 4 */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
-//	T_count++;
-//	if(T_count == 1000) {T_ms++;}
-//	if(T_count == 65535) { T_count = 0; }
-//
-//	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_1); T_count=0; T_ms=0;
-//	//	if((up_pulse == 1) && (TIM3->CCR1 < TIM3->ARR-1))
-//	{
-//		TIM3->CCR1 = PWM_Width * T_count;
-//		T_count++;
-//		if(T_count == 65535) { T_count = 0;}
-//		if(TIM3->CCR1 == TIM3->ARR-1) {up_pulse = 0; down_pulse = 1;}
+	if(htim->Instance == TIM14)
+	{
+		Charging_Status = HAL_GPIO_ReadPin(GPIOA, GPIO_PIN_4);
+		if(Charging_Status == 1) { HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0); HAL_TIM_Base_Stop(&htim1); HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);} //if N3 Status is Charing, Shut down System.
+//		if(status == 0)
+//		{
+			ms_count++;
+			if(ms_count >= 10) { s_count++; ms_count = 0; } //TIM14 100ms interrupt 100ms* 10= 1s
+			if(s_count >= 65535) { s_count = 0; }
 //	}
-//	else if(down_pulse == 1)
-//	{
-//		TIM3->CCR1 = PWM_Width * T_count;
-//		T_count--;
-//		if(T_count == 0) { T_count = 0;}
-//		if(TIM3->CCR1 == 0) {up_pulse = 1; down_pulse = 0;}
-//	}
+	}
 }
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+void HAL_UARTEx_RxEventCallback(UART_HandleTypeDef *huart, uint16_t Size)
+//void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
+
+	if(huart->Instance == USART2)
+	{
+//		HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_1);
+		memcpy(MainBuffer, RxBuffer, sizeof(RxBuffer));
+		memset(RxBuffer, 0, sizeof(RxBuffer));
+
+
+		if(strstr((const char *)MainBuffer, search_CONNECTED) != NULL)// DIS"CONNECTED , CONNECTED
+		{
+
+			if(strstr((const char *)MainBuffer, search_DISCONNECTED) != NULL)
+			{ 	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, 1); }//if BT disconnected, turn on power LED.
+			else
+			{	HAL_GPIO_WritePin(GPIOA, GPIO_PIN_1, 0); }//if BT connected, turn off power LED.}
+			TxBuffer_end = strlen((const char *)MainBuffer);
+				print("%s",MainBuffer);
+		}
+		else if(strstr((const char *)MainBuffer, search_COMMAND1) != NULL)
+		{
+			HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
+			TIM3->PSC = 240-1; //prescaler change		//Duty ON:OFF = 50:50
+			TIM3->ARR = freq_40Hz; //
+			TIM3->CCR1 = (TIM3->ARR+1)/2-1;
+			HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+			Current_mode = 1;
+
+			TxBuffer_end = strlen((const char *)MainBuffer);
+			print("%s",MainBuffer);
+		}
+		else if(strstr((const char *)MainBuffer, search_COMMAND2) != NULL)
+		{
+			HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
+			TIM3->PSC = 240-1; //prescaler change		//Duty ON:OFF = 25:75
+			TIM3->ARR = freq_40Hz; //40Hz
+			TIM3->CCR1 = (TIM3->ARR+1)/4-1;
+			HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+			Current_mode = 2;
+			TxBuffer_end = strlen((const char *)MainBuffer);
+			print("%s",MainBuffer);
+		}
+		else if(strstr((const char *)MainBuffer, search_COMMAND3) != NULL)
+		{
+			HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
+			TIM3->PSC = 240-1; //prescaler change		//Duty ON:OFF = 20:80
+			TIM3->ARR = freq_40Hz; //40Hz
+			TIM3->CCR1 = (TIM3->ARR+1)/5-1;
+			HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+			Current_mode = 3;
+			TxBuffer_end = strlen((const char *)MainBuffer);
+			print("%s",MainBuffer);
+		}
+		else if(strstr((const char *)MainBuffer, search_COMMAND4) != NULL)
+		{
+			HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
+			TIM3->PSC = 240-1; //prescaler change		//Duty ON:OFF = 10:90
+			TIM3->ARR = freq_40Hz; //40Hz
+			TIM3->CCR1 = (TIM3->ARR+1)/10-1;
+			HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+			Current_mode = 4;
+			TxBuffer_end = strlen((const char *)MainBuffer);
+			print("%s",MainBuffer);
+		}
+		else if(strstr((const char *)MainBuffer, search_COMMAND5) != NULL)
+		{
+			HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
+			TIM3->PSC = 240-1; //prescaler change		//Duty ON:OFF = 50:50
+			TIM3->ARR = freq_12Hz; //12Hz
+			TIM3->CCR1 = (TIM3->ARR+1)/2-1;
+			HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+			Current_mode = 5;
+			TxBuffer_end = strlen((const char *)MainBuffer);
+			print("%s",MainBuffer);
+		}
+		else if(strstr((const char *)MainBuffer, search_COMMAND6) != NULL)
+		{
+			HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
+			TIM3->PSC = 240-1; //prescaler change		//Duty ON:OFF = 50:50
+			TIM3->ARR = freq_10Hz; //10Hz
+			TIM3->CCR1 = (TIM3->ARR+1)/2-1;
+			HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+			Current_mode = 6;
+			TxBuffer_end = strlen((const char *)MainBuffer);
+			print("%s",MainBuffer);
+		}
+		else if(strstr((const char *)MainBuffer, search_COMMAND7) != NULL)
+		{
+			HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
+			TIM3->PSC = 240-1; //prescaler change		//Duty ON:OFF = 50:50
+			TIM3->ARR = freq_8Hz; //8Hz
+			TIM3->CCR1 = (TIM3->ARR+1)/2-1;
+			HAL_TIM_PWM_Start(&htim3, TIM_CHANNEL_1);
+			Current_mode = 7;
+			TxBuffer_end = strlen((const char *)MainBuffer);
+			print("%s",MainBuffer);
+		}
+		else if(strstr((const char *)MainBuffer, search_STATUS) != NULL)
+		{
+			sprintf((char*) &TxBuffer, "%s\r\n",N3_VER);
+//			TxBuffer_end = strlen((const char *)TxBuffer)+2;
+			TxBuffer_end = sizeof(TxBuffer);
+			print("%s", TxBuffer);
+			sprintf((char*) &TxBuffer, "%d sec\r\n", s_count);
+//			TxBuffer_end = strlen((const char *)TxBuffer)+2;
+			TxBuffer_end = sizeof(TxBuffer);
+			print("%s", TxBuffer);
+			sprintf((char*) &TxBuffer, "mode: %d\r\n", Current_mode);
+//			TxBuffer_end = strlen((const char *)TxBuffer)+2;
+			TxBuffer_end = sizeof(TxBuffer);
+			print("%s", TxBuffer);
+		}
+		else
+		{
+			sprintf((char*) &TxBuffer, "Unknown Command\r\n" );
+//			TxBuffer_end = strlen((const char *)TxBuffer+4);
+			TxBuffer_end = sizeof(TxBuffer);
+			print("%s",TxBuffer);
+		}
+
+	memset(MainBuffer, 0, sizeof(MainBuffer));	//MainBuffer clear
+	memset(RxBuffer, 0, sizeof(MAX_RX_BUFFER)); //RxBuffer clear
+
+	HAL_UARTEx_ReceiveToIdle_DMA(&huart2, RxBuffer, MAX_RX_BUFFER);
+	__HAL_DMA_DISABLE_IT(&hdma_usart2_rx, DMA_IT_HT);
+	}
+}
+//void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+//{
+//	HAL_GPIO_TogglePin(GPIOA, GPIO_PIN_1);
+//	RxBuffer[RxIndex++] = rx2_data;
+//	HAL_UART_Receive_IT(&huart2, &rx2_data, 1);
+	/*
 	if(huart->Instance == USART2)
 	{
 		HAL_UART_Receive_IT(&huart2, &rx2_data, 1);
@@ -497,20 +527,46 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 			int freq = 5000;		//40Hz = 5000, 12Hz = 16666, 10Hz = 20000, 8Hz = 25000
 			TIM3->ARR = freq-1;
 			TIM3->CCR1 = freq/2-1;
-			//HAL_UART_Transmit(&huart2, &rx2_data, 1, 10);
+			HAL_UART_Transmit(&huart2, &rx2_data, 1, 10);
 //			HAL_UART_Transmit(&huart2, &opcode, 1, 10);
 		}
 	}
-}
+	*/
+//}
 void delay_us(uint16_t time) {
 	__HAL_TIM_SET_COUNTER(&htim1, 0);              // TIM1 for delay
 	while((__HAL_TIM_GET_COUNTER(&htim1))<time);   // 1us count
 }
 
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
-	  {
-	  	  HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0);
-	  }
+{
+	//POWER SWITCH PUSHED
+	if(GPIO_Pin == GPIO_PIN_0)
+	{
+		HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
+		Sound_Close();
+		HAL_GPIO_WritePin(GPIOA, GPIO_PIN_5, 0); //LDO off
+	}
+
+}
+
+//for UART_TX_DMA
+void print(char *fmt, ...){
+
+	while(huart2.gState != HAL_UART_STATE_READY);
+	va_list args;
+
+	va_start(args, fmt);
+	vsprintf((char *)TxBuffer, fmt, args);
+	va_end(args);
+
+	if(huart2.gState == HAL_UART_STATE_READY)
+	{
+		HAL_UART_Transmit(&huart2, TxBuffer, TxBuffer_end, 10);
+		memset(TxBuffer, 0, sizeof(TxBuffer));	//TxBuffer clear}
+		TxBuffer_end = 0;
+	}
+}
 
 /* USER CODE END 4 */
 
