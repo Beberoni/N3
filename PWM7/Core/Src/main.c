@@ -542,7 +542,7 @@ void delay_us(uint16_t time) {
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
 {
 	//POWER SWITCH PUSHED
-	if(GPIO_Pin == GPIO_PIN_0)
+	if(GPIO_Pin == GPIO_PIN_0 && status == 1)
 	{
 		HAL_TIM_PWM_Stop(&htim3, TIM_CHANNEL_1);
 		Sound_Close();

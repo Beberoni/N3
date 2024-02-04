@@ -7,6 +7,6 @@
 ../Core/Src/main.c:317:6:HAL_TIM_PeriodElapsedCallback	5
 ../Core/Src/main.c:331:6:HAL_UARTEx_RxEventCallback	12
 ../Core/Src/main.c:537:6:delay_us	2
-../Core/Src/main.c:542:6:HAL_GPIO_EXTI_Callback	2
+../Core/Src/main.c:542:6:HAL_GPIO_EXTI_Callback	3
 ../Core/Src/main.c:555:6:print	3
 ../Core/Src/main.c:578:6:Error_Handler	1
